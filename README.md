@@ -83,7 +83,7 @@ Different cards and presets produce different formats. A **format scheme** learn
 - **AI analysis** (one call) writes a short format note and proposes rules; each rule is checked against the samples before you adopt it.
 - Optionally **attach the samples** as worked examples to every request.
 - **Back-test** re-filters the samples and lists what was over- or under-deleted.
-- Bind a scheme to **character cards** or **presets** and rebind at any time (card > preset > global default). Samples per scheme: 3 by default, up to 10.
+- Bind a scheme to **character cards** or **presets** and rebind at any time (card > preset > global default). Samples per scheme: 3 by default, up to 10; each sample up to 50,000 characters by default (adjustable up to 200,000).
 
 ## Privacy and storage
 

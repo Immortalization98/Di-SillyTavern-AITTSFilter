@@ -50,6 +50,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     defaultSchemeId: '',
     /** max anchor samples per scheme (user adjustable, 1-10) */
     anchorLimit: 3,
+    /** max characters of a sample's original text (user adjustable, 1000-200000) */
+    anchorMaxChars: 50000,
     cacheMaxEntries: 3000,
     cacheMaxDays: 60,
 });

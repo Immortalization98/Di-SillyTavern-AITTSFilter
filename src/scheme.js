@@ -11,7 +11,10 @@ import { buildExample } from './core/prompt.js';
 import { hashString } from './core/hash.js';
 
 export const ANCHOR_LIMIT_MAX = 10;
-export const ANCHOR_MAX_CHARS = 6000;
+/** Default and bounds of the per-sample length limit (characters of the original). */
+export const ANCHOR_MAX_CHARS_DEFAULT = 50000;
+export const ANCHOR_MAX_CHARS_MIN = 1000;
+export const ANCHOR_MAX_CHARS_MAX = 200000;
 /** Total characters of worked examples sent with every request (few-shot). */
 export const FEW_SHOT_MAX_CHARS = 6000;
 
@@ -63,6 +66,12 @@ export function getSchemes() {
 /** @param {string} id */
 export function findScheme(id) {
     return getSchemes().find(x => x.id === id) ?? null;
+}
+
+/** Longest original text a sample may have (user adjustable). */
+export function anchorMaxChars() {
+    const n = Math.round(Number(getSettings().anchorMaxChars) || ANCHOR_MAX_CHARS_DEFAULT);
+    return Math.min(ANCHOR_MAX_CHARS_MAX, Math.max(ANCHOR_MAX_CHARS_MIN, n));
 }
 
 export function anchorLimit() {
@@ -247,8 +256,9 @@ export function refreshAutoRules(scheme) {
  * @param {string} [replaceId]  anchor to replace (when the scheme is full)
  */
 export function addAnchor(scheme, text, segments, labels, replaceId) {
-    if (Array.from(text).length > ANCHOR_MAX_CHARS) {
-        throw new Error(`样例太长（超过 ${ANCHOR_MAX_CHARS} 字），请先在“粘贴原文”里删掉一部分剧情再加入`);
+    const length = Array.from(text).length;
+    if (length > anchorMaxChars()) {
+        throw new Error(`样例原文有 ${length} 字，超过了上限 ${anchorMaxChars()} 字。可以在设置“格式方案”里调高“样例原文字数上限”（最多 ${ANCHOR_MAX_CHARS_MAX}）`);
     }
     const anchor = { id: newId(), text, skips: rangesFromLabels(segments, labels), at: Date.now() };
     if (replaceId) {

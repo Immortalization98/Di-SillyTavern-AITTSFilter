@@ -339,3 +339,20 @@ test('alignBody: a few extra characters at the end of a line do not derail the n
     assert.equal([...r.labels.values()].every(l => !l.skip), true);
     assert.ok(r.diffs.some(d => d.added.includes('啊')));
 });
+
+test('analysis request collapses long "not read" blocks such as CSS', () => {
+    const css = Array.from({ length: 400 }, (_, i) => `.c${i} { color: #${String(i).padStart(3, '0')}; margin: 0 auto; }`).join('\n');
+    const text = `<style>\n${css}\n</style>\n她推开门，雨水顺着伞尖滴落。\n📍地点：旧城区`;
+    const s = sampleFromBody(text, '她推开门，雨水顺着伞尖滴落。');
+    const content = buildAnalysisMessages([s])[1].content;
+    assert.ok(content.length < 2000, `too long: ${content.length}`);
+    assert.match(content, /同一块里还有 \d+ 段，同样不读/);
+    assert.match(content, /【读】 她推开门/);
+    assert.match(content, /📍地点：旧城区/);
+});
+
+test('sample length limit is a setting', async () => {
+    const { ANCHOR_MAX_CHARS_DEFAULT, ANCHOR_MAX_CHARS_MAX } = await import('../src/scheme.js');
+    assert.equal(ANCHOR_MAX_CHARS_DEFAULT, 50000);
+    assert.ok(ANCHOR_MAX_CHARS_MAX >= 100000);
+});

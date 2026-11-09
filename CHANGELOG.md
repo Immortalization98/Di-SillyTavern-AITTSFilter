@@ -1,5 +1,12 @@
 # Changelog / 更新日志
 
+## 1.0.1 — 2026-11-10
+
+- The length limit for a sample's original text is now a setting (default 50,000 characters, up to 200,000); 6,000 was too low for messages with CSS beautification.
+  样例原文的字数上限改为可调的设置（默认 5 万字，最多 20 万）；原来的 6000 字放不下带 CSS 美化的消息。
+- AI analysis collapses long "not read" blocks (for example a whole `<style>` block) into one line with a count, so long samples stay cheap to analyse.
+  AI 分析时，把连续的“不读”长块（比如整段 `<style>`）合并成一行并注明段数，长样例也不会多花很多字数。
+
 ## 1.0.0 — 2026-11-10
 
 First release. / 首个版本。

@@ -68,8 +68,10 @@ export function settingsHtml() {
         <div id="aitts_scheme_current" class="aitts-note aitts-note-info"></div>
         <div class="aitts-grid">
           <label>每个方案的样例上限（1–10）<input type="number" class="text_pole" min="1" max="10" data-aitts="anchorLimit"></label>
+          <label>样例原文字数上限（1000–200000）<input type="number" class="text_pole" min="1000" max="200000" step="1000" data-aitts="anchorMaxChars"></label>
           <label>没有绑定时使用<select class="text_pole" id="aitts_default_scheme"></select></label>
         </div>
+        <small class="aitts-hint">样例原文保存在扩展设置里（跟随账号），上限调得越高、样例越多，settings.json 就越大。</small>
         <div id="aitts_scheme_list"></div>
         <div class="menu_button" id="aitts_scheme_new">新建方案</div>
       </details>

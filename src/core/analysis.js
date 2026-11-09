@@ -33,15 +33,41 @@ export const ANALYSIS_SYSTEM_PROMPT = `你是角色扮演消息的格式分析�
  */
 export function buildAnalysisMessages(samples, opts = {}) {
     const max = opts.maxSegmentChars ?? 200;
+    const sampleBudget = opts.maxSampleChars ?? 8000;
     const blocks = samples.map((sample, i) => {
         const lines = [];
+        let used = 0;
+        let omitted = 0;
+        // Consecutive "not read" segments in the same block (e.g. a long <style>
+        // or status panel) are shown once, with a count.
+        let runKey = '';
+        let runExtra = 0;
+        const flushRun = () => {
+            if (runExtra > 0) lines.push(`（同一块里还有 ${runExtra} 段，同样不读）`);
+            runExtra = 0;
+        };
         for (const seg of sample.segments) {
             const label = sample.labels.get(seg.id);
             if (!label) continue;
-            const body = truncateMiddle(sample.text.slice(seg.start, seg.end).replace(/\s*\n\s*/g, ' ⏎ '), max);
             const path = seg.path.length ? `‹${seg.path.join('/')}› ` : '';
-            lines.push(`${label.skip ? `【不读·${label.cat}】` : '【读】'} ${path}${body}`);
+            const key = label.skip ? `${label.cat}|${seg.path.join('/')}` : '';
+            if (key && key === runKey) {
+                runExtra++;
+                continue;
+            }
+            flushRun();
+            runKey = key;
+            const body = truncateMiddle(sample.text.slice(seg.start, seg.end).replace(/\s*\n\s*/g, ' ⏎ '), max);
+            const line = `${label.skip ? `【不读·${label.cat}】` : '【读】'} ${path}${body}`;
+            if (used + line.length > sampleBudget) {
+                omitted++;
+                continue;
+            }
+            used += line.length;
+            lines.push(line);
         }
+        flushRun();
+        if (omitted) lines.push(`（样例较长，后面还有 ${omitted} 段没有列出）`);
         return `样例 ${i + 1}：\n${lines.join('\n')}`;
     });
     return [
