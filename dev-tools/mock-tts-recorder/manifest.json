@@ -1,0 +1,9 @@
+{
+    "display_name": "Mock TTS Recorder (test only)",
+    "loading_order": 1,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "author": "test",
+    "version": "0.0.1"
+}
