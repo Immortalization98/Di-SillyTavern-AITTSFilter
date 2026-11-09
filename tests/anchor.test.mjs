@@ -278,3 +278,64 @@ test('stored generic-tag rules never take effect', async () => {
     assert.equal(sc.aiRules[0].enabled, false);
     assert.match(sc.aiRules[0].invalid, /通用排版标签/);
 });
+
+test('alignBody tolerates words hidden by a display regex and lists them', () => {
+    const text = [
+        '📍地点：旧城区 | 时间：夜',
+        '达妮娅眼尾弯起柔和的笑意，非但没有躲闪，反而伸出左手大拇指，极其自然地抹去你唇角沾着的一点深褐色猪排酱汁。',
+        '❤️好感度：40',
+        '“好吃吗？”她小声问道，眼睛亮亮的。',
+    ].join('\n');
+    const body = '达妮娅眼尾弯起柔和的笑意，非但没有躲闪，反而伸出左手大拇指，自然地抹去你唇角沾着的一点深褐色猪排酱汁。\n“好吃吗？”她问道，眼睛亮亮的。';
+    const r = alignBody(text, body);
+    assert.equal(r.ok, true, r.error);
+    const read = [...r.labels].filter(([, l]) => !l.skip).map(([id]) => r.segments[id].line + 1);
+    assert.deepEqual(read, [2, 4]);
+    assert.deepEqual(r.diffs.map(d => [d.line, d.removed, d.added]), [[2, '极其', ''], [4, '小声', '']]);
+    assert.match(r.diffs[0].before, /大拇指，$/);
+});
+
+test('alignBody does not mistake a status line for story text', () => {
+    const text = '时间：夜晚 | 地点：酒馆\n夜晚的酒馆里，炉火正旺，时间仿佛停住了。';
+    const r = alignBody(text, '夜晚的酒馆里，炉火正旺，时间仿佛停住了。');
+    assert.equal(r.ok, true);
+    assert.equal(r.labels.get(r.segments[0].id).skip, true);
+    assert.equal(r.labels.get(r.segments[1].id).skip, false);
+    assert.equal(r.diffs.length, 0);
+});
+
+test('alignBody reports text that is really not in the original', () => {
+    const r = alignBody('她推开门。\n门外下着雨。', '她推开门。\n这是一段原文里完全没有的、很长很长的额外内容。');
+    assert.equal(r.ok, false);
+    assert.match(r.error, /找不到/);
+});
+
+test('alignBody: status-like lines sharing characters with the story are not read', () => {
+    const text = [
+        '地点：房间里的床边 | 状态：在发呆',
+        '她在房间里的床边坐了一会儿，然后在发呆中睡着了。',
+        '【她在房间里坐着发呆】',
+    ].join('\n');
+    const r = alignBody(text, '她在房间里的床边坐了一会儿，然后在发呆中睡着了。');
+    assert.equal(r.ok, true, r.error);
+    const read = [...r.labels].filter(([, l]) => !l.skip).map(([id]) => r.segments[id].line + 1);
+    assert.deepEqual(read, [2]);
+    assert.equal(r.diffs.length, 0);
+});
+
+test('alignBody: a scattered-character match is refused', () => {
+    // Shares many single characters with the 正文 but no runs.
+    const text = '的了在是我有他这中大来上\n她轻轻推开门，屋里的灯还亮着，桌上放着一封没有拆开的信。';
+    const r = alignBody(text, '她轻轻推开门，屋里的灯还亮着，桌上放着一封没有拆开的信。');
+    assert.equal(r.ok, true);
+    assert.equal(r.labels.get(r.segments[0].id).skip, true);
+});
+
+test('alignBody: a few extra characters at the end of a line do not derail the next line', () => {
+    const text = '她推开门，雨水顺着伞尖滴落下来。\n“我回来了，”她小声说，把伞靠在墙边。';
+    const body = '她推开门，雨水顺着伞尖滴落下来啊。\n“我回来了，”她小声说，把伞靠在墙边。';
+    const r = alignBody(text, body);
+    assert.equal(r.ok, true, r.error);
+    assert.equal([...r.labels.values()].every(l => !l.skip), true);
+    assert.ok(r.diffs.some(d => d.added.includes('啊')));
+});

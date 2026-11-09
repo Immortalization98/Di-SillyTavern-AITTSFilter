@@ -289,3 +289,24 @@ body:not(.aitts-enabled) #aitts_wand_container {
     margin: 4px 0;
     flex-wrap: wrap;
 }
+
+.aitts-scheme-editor .menu_button {
+    width: auto;
+    white-space: nowrap;
+}
+
+.aitts-scheme-editor .menu_button.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.aitts-diffs ol {
+    margin: 4px 0;
+    padding-left: 1.5em;
+    max-height: 40vh;
+    overflow-y: auto;
+}
+
+.aitts-diffs li {
+    margin: 4px 0;
+}

@@ -1,6 +1,6 @@
 // Runs the accuracy samples through the real extension code inside a
 // SillyTavern page (dev only). Usage from the browser console:
-//   const { runEval } = await import('/scripts/extensions/third-party/ai-tts-filter/dev-tools/eval/run.js');
+//   const { runEval } = await import('/scripts/extensions/third-party/Di-SillyTavern-AITTSFilter/dev-tools/eval/run.js');
 //   await runEval();
 // Uses whatever model the extension settings point to. Ignores the cache.
 

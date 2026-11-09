@@ -195,6 +195,35 @@ async function pickAnchorToReplace(scheme) {
     return ok === c.POPUP_RESULT.AFFIRMATIVE ? /** @type {HTMLSelectElement} */ (root.querySelector('.aitts-pick-anchor')).value : undefined;
 }
 
+/**
+ * Lists where the pasted 正文 differs from the original and asks to go on.
+ * @param {import('./core/anchor.js').BodyDiff[]} diffs
+ * @returns {Promise<boolean>}
+ */
+async function confirmDiffs(diffs) {
+    const c = ctx();
+    const item = (d) => {
+        const where = d.line ? `第 ${d.line} 行` : '末尾';
+        const what = [
+            d.removed ? `原文有“<b>${escapeHtml(d.removed)}</b>”，正文没有` : '',
+            d.added ? `正文多了“<b>${escapeHtml(d.added)}</b>”` : '',
+        ].filter(Boolean).join('；');
+        const ctxText = `…${escapeHtml(d.before)}【${escapeHtml(d.removed || d.added)}】${escapeHtml(d.after)}…`;
+        return `<li>${where}：${what}<br><small>${ctxText}</small></li>`;
+    };
+    const root = document.createElement('div');
+    root.innerHTML = `
+        <h3>正文和原文有 ${diffs.length} 处不一致</h3>
+        <p>常见原因是显示用的正则隐藏或替换了部分文字。这些行仍按“读”处理：朗读时会读原文整行，被隐藏的字可以交给原生朗读的正则去掉。</p>
+        <details class="aitts-diffs"${diffs.length <= 3 ? ' open' : ''}>
+          <summary>逐条查看（${diffs.length} 处）</summary>
+          <ol>${diffs.map(item).join('')}</ol>
+        </details>
+        <p>继续加入这份样例吗？</p>`;
+    const result = await c.callGenericPopup(root, c.POPUP_TYPE.CONFIRM, '', { wide: true, allowVerticalScrolling: true, leftAlign: true, okButton: '继续', cancelButton: '取消' });
+    return result === c.POPUP_RESULT.AFFIRMATIVE;
+}
+
 // ---------------------------------------------------------------- scheme editor
 
 /** @param {import('./scheme.js').Scheme} scheme */
@@ -207,6 +236,14 @@ export async function openSchemeEditor(scheme) {
     let analysisResult = null;
     let backtest = '';
     let busy = false;
+    let pasting = false;
+    /** @type {any} */
+    let lastToast = null;
+    /** One message at a time: a new one replaces the previous. */
+    const notify = (level, message, timeOut = 5000) => {
+        if (lastToast) toastr.clear(lastToast);
+        lastToast = toastr[level](message, TITLE, { timeOut });
+    };
 
     const ruleStage = () => {
         const samples = scheme.anchors.map(labelAnchor);
@@ -290,7 +327,7 @@ export async function openSchemeEditor(scheme) {
               <textarea class="text_pole aitts-add-text" rows="5"></textarea>
               <label>正文（其中应该读出来的部分，按原顺序；空白和换行不影响）</label>
               <textarea class="text_pole aitts-add-body" rows="4"></textarea>
-              <div class="menu_button" data-act="add-pasted">对齐并加入</div>
+              <div class="aitts-row"><div class="menu_button" data-act="add-pasted">对齐并加入</div></div>
               <small class="aitts-hint">也可以在消息的朗读预览里点“纠错”→“加入样例”。</small>
             </details>
 
@@ -426,19 +463,31 @@ export async function openSchemeEditor(scheme) {
                     break;
                 }
                 case 'add-pasted': {
-                    const text = /** @type {HTMLTextAreaElement} */ (root.querySelector('.aitts-add-text')).value;
-                    const bodyText = /** @type {HTMLTextAreaElement} */ (root.querySelector('.aitts-add-body')).value;
-                    if (!text.trim()) { toastr.info('先粘贴原文', TITLE); return; }
-                    const aligned = alignBody(text, bodyText);
-                    if (!aligned.ok) { toastr.warning(aligned.error, TITLE, { timeOut: 10000 }); return; }
-                    const labels = await editLabels('检查对齐结果', text, aligned.segments, aligned.labels);
-                    if (!labels) return;
-                    let replaceId;
-                    if (scheme.anchors.length >= anchorLimit()) {
-                        replaceId = await pickAnchorToReplace(scheme);
-                        if (!replaceId) return;
+                    if (pasting) return;
+                    pasting = true;
+                    t.classList.add('disabled');
+                    try {
+                        const text = /** @type {HTMLTextAreaElement} */ (root.querySelector('.aitts-add-text')).value;
+                        const bodyText = /** @type {HTMLTextAreaElement} */ (root.querySelector('.aitts-add-body')).value;
+                        if (!text.trim()) { notify('info', '先粘贴原文'); return; }
+                        const aligned = alignBody(text, bodyText);
+                        if (!aligned.ok) { notify('warning', aligned.error, 10000); return; }
+                        if (aligned.diffs.length && !(await confirmDiffs(aligned.diffs))) return;
+                        const labels = await editLabels('检查对齐结果', text, aligned.segments, aligned.labels);
+                        if (!labels) return;
+                        let replaceId;
+                        if (scheme.anchors.length >= anchorLimit()) {
+                            replaceId = await pickAnchorToReplace(scheme);
+                            if (!replaceId) return;
+                        }
+                        addAnchor(scheme, text, aligned.segments, labels, replaceId);
+                        root.querySelector('.aitts-add-text').value = '';
+                        root.querySelector('.aitts-add-body').value = '';
+                        notify('success', '已加入样例');
+                    } finally {
+                        pasting = false;
+                        t.classList.remove('disabled');
                     }
-                    addAnchor(scheme, text, aligned.segments, labels, replaceId);
                     break;
                 }
                 case 'analyze': await runAnalysis(); return;
