@@ -195,6 +195,40 @@ function extractJson(s) {
 }
 
 /**
+ * The answer's main text (not its reasoning).
+ * @param {unknown} answer  string, or {content, reasoning} from SillyTavern
+ * @returns {string}
+ */
+export function answerContent(answer) {
+    if (typeof answer === 'string') return answer;
+    return answer && typeof answer === 'object' && 'content' in answer ? String(answer.content ?? '') : '';
+}
+
+/**
+ * Explains why no JSON was found. Thinking models can spend the whole
+ * output limit on reasoning and return an empty or cut-off answer.
+ * @param {unknown} answer  the raw answer
+ * @param {string} text  the answer text with think blocks and fences removed
+ * @returns {Error}
+ */
+export function noJsonError(answer, text) {
+    const reasoning = answer && typeof answer === 'object' && 'reasoning' in answer ? String(answer.reasoning ?? '').trim() : '';
+    const hint = '请在“模型参数与提示词”里调高“最大输出”（建议 8192 以上），或换用不思考的模型';
+    if (!text.trim()) {
+        return new Error(reasoning
+            ? `模型把输出额度都用在了思考上，正文是空的。${hint}`
+            : `模型返回的正文是空的，可能是思考用完了输出额度。${hint}`);
+    }
+    if (/<(think|thinking|reasoning)>/i.test(text) && !/<\/(think|thinking|reasoning)>/i.test(text)) {
+        return new Error(`模型还在思考就用完了输出额度，没有给出正文。${hint}`);
+    }
+    if (/[{[]/.test(text) && !/[}\]]\s*$/.test(text.trim())) {
+        return new Error(`模型回答在中途被截断了，没有完整的 JSON。${hint}`);
+    }
+    return new Error('模型回答里没有 JSON');
+}
+
+/**
  * Parses the model answer into display number -> category.
  * Accepts {"skip":{"cat":[1,2]}}, {"skip":[1,2]}, {"cat":[1]}, [1,2] and "3-5" ranges.
  * Numbers outside 1..maxId are ignored.
@@ -204,11 +238,11 @@ function extractJson(s) {
  * @throws {Error} when no JSON can be found
  */
 export function parseAnswer(answer, maxId) {
-    let s = typeof answer === 'string' ? answer : (answer && typeof answer === 'object' && 'content' in answer ? String(answer.content ?? '') : '');
+    let s = answerContent(answer);
     s = s.replace(/<(think|thinking|reasoning)>[\s\S]*?<\/\1>/gi, '').replace(/```(?:json)?/gi, '');
     const json = extractJson(s);
     if (!json) {
-        throw new Error('模型回答里没有 JSON');
+        throw noJsonError(answer, s);
     }
     let data;
     try {

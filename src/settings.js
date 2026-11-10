@@ -7,6 +7,9 @@ import { hashString } from './core/hash.js';
 
 export const SETTINGS_KEY = 'aiTtsFilter';
 
+/** Bump when stored settings need upgrading, see migrateSettings. */
+export const SETTINGS_VERSION = 3;
+
 export const DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
     /** 'llm' = rules + model, 'rules' = rules only */
@@ -38,10 +41,12 @@ export const DEFAULT_SETTINGS = Object.freeze({
     /** empty = built-in default prompt (kept empty so settings.json stays small) */
     prompt: '',
     maxSegmentChars: 200,
-    maxTokens: 1024,
+    /** thinking models count their reasoning against this limit, so keep it roomy */
+    maxTokens: 8192,
     /** number, or '' to not send a temperature */
     temperature: 0,
-    timeoutSec: 30,
+    /** thinking models need time to reason before they answer */
+    timeoutSec: 60,
     /** 'rules' | 'original' | 'none' */
     onFailure: 'rules',
     /** format schemes (anchor samples + learned rules + note), see scheme.js */
@@ -66,6 +71,7 @@ export function getSettings() {
         extensionSettings[SETTINGS_KEY] = {};
     }
     const s = extensionSettings[SETTINGS_KEY];
+    migrateSettings(s);
     for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
         if (!(key in s)) {
             s[key] = value && typeof value === 'object' ? structuredClone(value) : value;
@@ -75,6 +81,27 @@ export function getSettings() {
         s.schemes = [];
     }
     return s;
+}
+
+/**
+ * Upgrades settings saved by older versions. Runs once per stored object.
+ * @param {Record<string, any>} s
+ */
+function migrateSettings(s) {
+    if (Number(s.settingsVersion) >= SETTINGS_VERSION) {
+        return;
+    }
+    // 1.0.2: the old 1024 default left nothing for the answer once a thinking
+    // model had reasoned. Only the untouched default is raised.
+    const from = Number(s.settingsVersion) || 1;
+    if (from < 2 && 'maxTokens' in s && Number(s.maxTokens) === 1024) {
+        s.maxTokens = DEFAULT_SETTINGS.maxTokens;
+    }
+    // 1.0.2: 30 seconds was too short for a thinking model's longer answers.
+    if (from < 3 && 'timeoutSec' in s && Number(s.timeoutSec) === 30) {
+        s.timeoutSec = DEFAULT_SETTINGS.timeoutSec;
+    }
+    s.settingsVersion = SETTINGS_VERSION;
 }
 
 export function saveSettings() {

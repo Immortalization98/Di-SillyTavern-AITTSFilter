@@ -252,3 +252,11 @@ test('fuzz: output is always a subsequence and segments never overlap', () => {
         assert.ok(isSubsequence(out, text));
     }
 });
+
+test('parseAnswer explains empty or cut-off answers from thinking models', () => {
+    assert.throws(() => parseAnswer({ content: '', reasoning: '先看第一段……' }, 3), /思考上，正文是空的.*最大输出/);
+    assert.throws(() => parseAnswer('', 3), /正文是空的.*最大输出/);
+    assert.throws(() => parseAnswer('<think>先看第一段，再看', 3), /还在思考.*最大输出/);
+    assert.throws(() => parseAnswer('{"skip":{"think":[1,', 3), /截断.*最大输出/);
+    assert.throws(() => parseAnswer('我觉得都该读', 3), /^Error: 模型回答里没有 JSON$/);
+});

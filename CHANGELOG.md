@@ -1,5 +1,14 @@
 # Changelog / 更新日志
 
+## 1.0.2 — 2026-11-10
+
+- The default max output is now 8,192 tokens (was 1,024). Thinking models count their reasoning against it, and 1,024 was often used up before any answer, so AI analysis and filtering failed. Settings still on the old 1,024 default are raised once; any other value you set is kept.
+  “最大输出”默认改为 8192（原来 1024）。思考模型的思考也算在里面，1024 常常在给出正文前就用完了，AI 分析和过滤因此失败。仍是旧默认值 1024 的设置会自动升级一次；你改过的其他值保持不变。
+- The default timeout is now 60 seconds (was 30), since thinking models take longer to answer. Settings still on the old 30 are raised once.
+  默认超时改为 60 秒（原来 30 秒），思考模型回答得更慢。仍是旧默认值 30 的设置会自动升级一次。
+- When the answer is empty or cut off, the error now says so and points to the max output setting, instead of only "no JSON in the answer".
+  回答为空或被截断时，报错会直接说明，并提示调高“最大输出”，不再只显示“模型回答里没有 JSON”。
+
 ## 1.0.1 — 2026-11-10
 
 - The length limit for a sample's original text is now a setting (default 50,000 characters, up to 200,000); 6,000 was too low for messages with CSS beautification.

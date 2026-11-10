@@ -6,7 +6,7 @@
     "js": "src/index.js",
     "css": "src/style.css",
     "author": "Immortalization98",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "homePage": "https://github.com/Immortalization98/Di-SillyTavern-AITTSFilter",
     "auto_update": true,
     "minimum_client_version": "1.19.0",

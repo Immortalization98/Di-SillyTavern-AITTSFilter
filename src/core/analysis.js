@@ -3,7 +3,7 @@
 // it has been checked against the samples and confirmed by the user.
 // Pure module.
 
-import { truncateMiddle } from './prompt.js';
+import { truncateMiddle, answerContent, noJsonError } from './prompt.js';
 import { sanitizeRule, isGenericTagRule } from './scheme-rules.js';
 import { checkRule } from './anchor.js';
 
@@ -109,11 +109,11 @@ function firstJsonObject(s) {
  * @throws {Error} when no JSON can be found
  */
 export function parseAnalysis(answer, samples) {
-    let s = typeof answer === 'string' ? answer : (answer && typeof answer === 'object' && 'content' in answer ? String(answer.content ?? '') : '');
+    let s = answerContent(answer);
     s = s.replace(/<(think|thinking|reasoning)>[\s\S]*?<\/\1>/gi, '').replace(/```(?:json)?/gi, '');
     const json = firstJsonObject(s);
     if (!json) {
-        throw new Error('模型回答里没有 JSON');
+        throw noJsonError(answer, s);
     }
     let data;
     try {

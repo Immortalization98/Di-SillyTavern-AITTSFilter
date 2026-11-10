@@ -356,3 +356,7 @@ test('sample length limit is a setting', async () => {
     assert.equal(ANCHOR_MAX_CHARS_DEFAULT, 50000);
     assert.ok(ANCHOR_MAX_CHARS_MAX >= 100000);
 });
+
+test('parseAnalysis explains an empty answer from a thinking model', () => {
+    assert.throws(() => parseAnalysis({ content: '', reasoning: '分析样例……' }, []), /思考上，正文是空的.*最大输出/);
+});

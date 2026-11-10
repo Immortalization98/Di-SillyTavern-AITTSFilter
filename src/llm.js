@@ -2,7 +2,7 @@
 // Keys live in SillyTavern's secret store; requests refer to them by id, so
 // the key itself never passes through this extension when a request is made.
 
-import { getSettings } from './settings.js';
+import { getSettings, DEFAULT_SETTINGS } from './settings.js';
 
 /**
  * Secret id sent when no key was saved for the custom endpoint. It matches no
@@ -94,8 +94,8 @@ export async function classify(messages, signal) {
     if (!check.ok) {
         throw new Error(check.reason);
     }
-    const timeoutMs = Math.max(5, Number(s.timeoutSec) || 30) * 1000;
-    const maxTokens = Math.max(16, Number(s.maxTokens) || 1024);
+    const timeoutMs = Math.max(5, Number(s.timeoutSec) || DEFAULT_SETTINGS.timeoutSec) * 1000;
+    const maxTokens = Math.max(16, Number(s.maxTokens) || DEFAULT_SETTINGS.maxTokens);
     const t = withTimeout(signal, timeoutMs);
     try {
         if (s.source === 'main') {
