@@ -22,7 +22,6 @@ The user interface is in Simplified Chinese.
 - [Privacy and storage](#privacy-and-storage)
 - [Limitations](#limitations)
 - [Development](#development)
-- [Roadmap](#roadmap)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 
@@ -113,10 +112,6 @@ node --test
   const { runEval } = await import('/scripts/extensions/third-party/Di-SillyTavern-AITTSFilter/dev-tools/eval/run.js');
   await runEval();
   ```
-
-## Roadmap
-
-- **1.1**: turn a format scheme's skip rules into built-in TTS regex, so the learned filtering keeps working even with this extension switched off.
 
 ## Acknowledgements
 

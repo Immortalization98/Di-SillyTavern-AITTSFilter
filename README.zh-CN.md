@@ -22,7 +22,6 @@
 - [隐私与存储](#隐私与存储)
 - [限制](#限制)
 - [开发](#开发)
-- [计划](#计划)
 - [致谢](#致谢)
 - [许可证](#许可证)
 
@@ -126,10 +125,6 @@ node --test
   const { runEval } = await import('/scripts/extensions/third-party/Di-SillyTavern-AITTSFilter/dev-tools/eval/run.js');
   await runEval();
   ```
-
-## 计划
-
-- **1.1**：把格式方案里的跳过规则转成酒馆自带朗读的正则。这样即使关闭本扩展，学到的过滤也能继续生效。
 
 ## 致谢
 

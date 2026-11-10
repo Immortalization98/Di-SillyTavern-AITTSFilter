@@ -30,8 +30,3 @@ First release. / 首个版本。
   格式方案：样例（原文 + 正文，容忍显示正则隐藏的字）、自动学出的固定形式规则、一次性 AI 分析、可选的附带样例、回测；可绑定角色卡或预设。
 - Tested with SillyTavern 1.19.0; unit tests on Node 20 / 22 / 24.
   已在 SillyTavern 1.19.0 上测试；单元测试覆盖 Node 20 / 22 / 24。
-
-## Planned / 计划
-
-- 1.1: turn a format scheme's skip rules into built-in TTS regex, so the filtering keeps working even with the extension switched off.
-  1.1：把格式方案的跳过规则固化成酒馆自带朗读的正则，关闭扩展后也能继续生效。
