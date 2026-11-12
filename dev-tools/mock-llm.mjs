@@ -7,6 +7,7 @@ import http from 'node:http';
 
 const port = Number(process.argv[2] || 8020);
 let filterMode = 'ok';
+let feedbackMode = 'ok';
 let chatCounter = 0;
 /** @type {any[]} */
 const log = [];
@@ -68,7 +69,8 @@ function filterAnswer(body) {
 http.createServer((req, res) => {
     const url = new URL(req.url, `http://127.0.0.1:${port}`);
     if (url.pathname === '/__mode') {
-        filterMode = url.searchParams.get('filter') || 'ok';
+        if (url.searchParams.has('fb')) feedbackMode = url.searchParams.get('fb') || 'ok';
+        else filterMode = url.searchParams.get('filter') || 'ok';
         res.writeHead(200, { 'content-type': 'application/json' });
         return res.end(JSON.stringify({ filterMode }));
     }
@@ -94,6 +96,29 @@ http.createServer((req, res) => {
     req.on('data', c => { raw += c; });
     req.on('end', () => {
         const body = JSON.parse(raw || '{}');
+        if (body.messages?.some(m => m.role === 'system' && String(m.content).includes('纠错助手'))) {
+            // Feedback correction: "key：value | key：value" lines that are read become status,
+            // 『』 lines that are not read become read; proposes a good, a too broad and an unsafe rule.
+            const user = String(body.messages.at(-1)?.content ?? '');
+            const read = [];
+            const status = [];
+            for (const line of user.split('\n')) {
+                const m = /^(\d+)(?:-\d+)?\. 【(读|不读[^】]*)】(?:（用户已改）)? (?:‹[^›]*› )?(.*)$/.exec(line);
+                if (!m) continue;
+                const n = Number(m[1]);
+                if (m[2] === '读' && /^【?[^：|]{1,12}：[^|]*\|/.test(m[3])) status.push(n);
+                if (m[2] !== '读' && m[3].startsWith('『')) read.push(n);
+            }
+            const content = feedbackMode === 'broken' ? '我觉得你说得对。' : JSON.stringify({
+                read,
+                skip: { status },
+                rules: [{ type: 'kv' }, { type: 'bracket', open: '【' }, { type: 'prefix', value: '“' }],
+                note: '『』包着的是角色心声，要读；“名称：数值 | 名称：数值”的行是状态栏。',
+            });
+            log.push({ kind: 'feedback', at: new Date().toISOString(), messages: body.messages, answer: content });
+            res.writeHead(200, { 'content-type': 'application/json' });
+            return res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content } }] }));
+        }
         if (body.messages?.some(m => m.role === 'system' && String(m.content).includes('格式分析员'))) {
             // Analysis of anchor samples: a fixed answer with one good and one bad rule.
             const content = JSON.stringify({

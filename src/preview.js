@@ -106,8 +106,9 @@ export function labelsFromOutcome(o) {
  * @param {import('./core/segmenter.js').Segment[]} segments
  * @param {Map<number, { skip: boolean, cat: string }>} labels
  * @param {() => void} [onChange]
+ * @param {Set<number>} [changed]  segments to mark as changed (by a correction)
  */
-export function mountLabelEditor(el, text, segments, labels, onChange) {
+export function mountLabelEditor(el, text, segments, labels, onChange, changed) {
     const draw = () => {
         const parts = [];
         let pos = 0;
@@ -118,7 +119,8 @@ export function mountLabelEditor(el, text, segments, labels, onChange) {
             if (!label) {
                 parts.push(`<span class="aitts-skip aitts-markup">${body}</span>`);
             } else {
-                parts.push(`<span class="aitts-seg ${label.skip ? 'aitts-seg-skip' : 'aitts-seg-read'}" data-seg="${seg.id}" role="button" tabindex="0">${body}</span>`);
+                const mark = changed?.has(seg.id) ? ' aitts-seg-changed' : '';
+                parts.push(`<span class="aitts-seg ${label.skip ? 'aitts-seg-skip' : 'aitts-seg-read'}${mark}" data-seg="${seg.id}" role="button" tabindex="0">${body}</span>`);
             }
             pos = seg.end;
         }
@@ -127,7 +129,7 @@ export function mountLabelEditor(el, text, segments, labels, onChange) {
         for (const seg of segments) if (seg.kind === 'markup') skipped.add(seg.id);
         const output = composeOutput(text, segments, skipped);
         el.innerHTML = `
-            <div class="aitts-legend">点一下片段在“读 / 不读”之间切换。<span class="aitts-seg aitts-seg-read">读</span> <span class="aitts-seg aitts-seg-skip">不读</span> · 将读出 ${Array.from(output).length} 字</div>
+            <div class="aitts-legend">点一下片段在“读 / 不读”之间切换。<span class="aitts-seg aitts-seg-read">读</span> <span class="aitts-seg aitts-seg-skip">不读</span>${changed ? ' <span class="aitts-seg aitts-seg-read aitts-seg-changed">改过的</span>' : ''} · 将读出 ${Array.from(output).length} 字</div>
             <div class="aitts-annotated aitts-editing">${parts.join('')}</div>
             <details class="aitts-output"><summary>将读出的正文</summary><pre>${escapeHtml(output || '（空，不朗读）')}</pre></details>`;
     };
@@ -154,6 +156,8 @@ export function mountLabelEditor(el, text, segments, labels, onChange) {
  *   unlock?: () => void,
  *   saveCorrection?: (labels: Map<number, { skip: boolean, cat: string }>, outcome: import('./filter.js').FilterOutcome) => Promise<string>,
  *   addToScheme?: (labels: Map<number, { skip: boolean, cat: string }>, outcome: import('./filter.js').FilterOutcome) => Promise<void>,
+ *   feedback?: (host: { body: HTMLElement, outcome: import('./filter.js').FilterOutcome, done: (output: string) => void, cancel: () => void }) => void,
+ *   feedback?: (host: { body: HTMLElement, outcome: import('./filter.js').FilterOutcome, done: (output: string) => void, cancel: () => void }) => void,
  * }} opts
  */
 export async function openPreview(opts) {
@@ -167,6 +171,8 @@ export async function openPreview(opts) {
             <div class="menu_button aitts-act-refilter"><i class="fa-solid fa-rotate"></i> 重新过滤</div>
             <div class="menu_button aitts-act-copy"><i class="fa-solid fa-copy"></i> 复制</div>
             ${opts.saveCorrection ? '<div class="menu_button aitts-act-edit"><i class="fa-solid fa-pen"></i> 纠错</div>' : ''}
+            ${opts.feedback ? '<div class="menu_button aitts-act-feedback" title="用一句话说哪里不对，让 AI 修正这条消息，并把规律记进格式方案"><i class="fa-solid fa-comment-dots"></i> 提意见</div>' : ''}
+            ${opts.feedback ? '<div class="menu_button aitts-act-feedback" title="用一句话说哪里不对，让 AI 修正这条消息，并把规律记进格式方案"><i class="fa-solid fa-comment-dots"></i> 提意见</div>' : ''}
         </div>
         <div class="aitts-actions aitts-edit-actions" style="display:none">
             <div class="menu_button aitts-act-save"><i class="fa-solid fa-check"></i> 按此朗读并记住</div>
@@ -227,6 +233,40 @@ export async function openPreview(opts) {
         const holder = document.createElement('div');
         body.append(holder);
         mountLabelEditor(holder, current.text, current.segments, editing);
+    });
+    root.querySelector('.aitts-act-feedback')?.addEventListener('click', () => {
+        if (!current || busy || !opts.feedback) return;
+        viewActions.style.display = 'none';
+        editActions.style.display = 'none';
+        body.innerHTML = '';
+        const holder = document.createElement('div');
+        body.append(holder);
+        opts.feedback({
+            body: holder,
+            outcome: current,
+            done: (output) => {
+                opts.speak(output);
+                load(false);
+            },
+            cancel: showView,
+        });
+    });
+    root.querySelector('.aitts-act-feedback')?.addEventListener('click', () => {
+        if (!current || busy || !opts.feedback) return;
+        viewActions.style.display = 'none';
+        editActions.style.display = 'none';
+        body.innerHTML = '';
+        const holder = document.createElement('div');
+        body.append(holder);
+        opts.feedback({
+            body: holder,
+            outcome: current,
+            done: (output) => {
+                opts.speak(output);
+                load(false);
+            },
+            cancel: showView,
+        });
     });
     root.querySelector('.aitts-act-cancel')?.addEventListener('click', showView);
     root.querySelector('.aitts-act-save')?.addEventListener('click', async () => {

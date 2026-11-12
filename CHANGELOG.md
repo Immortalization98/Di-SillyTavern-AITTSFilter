@@ -1,5 +1,10 @@
 # Changelog / 更新日志
 
+## 1.1.0 — unreleased / 未发布
+
+- **Feedback correction** in the preview ("提意见"), carried over from the successor extension AI Voice: say in a sentence or two what the filter got wrong, and tap parts if you like. One request to the filtering model answers which parts of this message change, rules of the scheme's fixed shapes that would decide such parts from now on, and a line for the format note. Every rule is checked first: it must hit this message and must not drop anything that is read, here or in the scheme's other samples. You see the changes, can adjust them, and choose what to keep; only then is the message read and remembered, added to (or updated in) a format scheme as a sample, and the chosen rules and note saved. Rules learned this way can be switched off one by one in the scheme. The opinion and the message are sent to the filtering model's provider. Two kinds: **solidify** (described above: rules and a note for the scheme) and **add as sample** (only this message is corrected, then kept as a sample — an anchor — of the scheme; no rules or note are added, and the scheme's "附带样例" can be switched on so new messages are filtered with the samples as examples). The kind chosen last is remembered on the device.
+  **意见修正**（预览里的“提意见”，从后继扩展 AI Voice 移植）：用一两句话说过滤哪里不对，也可以顺手点几段。过滤模型一次回答三样东西：这条消息哪些片段要改，以后能自动判定同类内容的规则（只能是格式方案现有的几种），以及一句格式说明。每条规则都先检查：必须在这条消息里命中，而且不能删掉这条消息和方案其他样例里要读的内容。你看过改动、可以再调整、选好要保留哪些之后，才会朗读并记住这条消息，把它作为样例加入（或更新）格式方案，并保存选中的规则和说明。这样学到的规则在方案里可以逐条关掉。意见和这条消息会发给过滤模型的服务商。分两种：**固化**（就是上面说的，存成方案的规则和说明）和 **补充样例**（只改这条消息，改好后存为方案的样例，也就是锚点；不新增规则和说明，可以顺手打开方案的“附带样例”，让新消息过滤时参考样例）。上次选的方式记在本设备上。
+
 ## 1.0.2 — 2026-11-10
 
 - The default max output is now 8,192 tokens (was 1,024). Thinking models count their reasoning against it, and 1,024 was often used up before any answer, so AI analysis and filtering failed. Settings still on the old 1,024 default are raised once; any other value you set is kept.

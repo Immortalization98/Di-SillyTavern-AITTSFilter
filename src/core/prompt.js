@@ -166,7 +166,7 @@ ${note}`;
  * @param {string} s
  * @returns {string|null}
  */
-function extractJson(s) {
+export function extractJson(s) {
     const start = s.search(/[{[]/);
     if (start === -1) {
         return null;

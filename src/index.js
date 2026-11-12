@@ -12,6 +12,8 @@ import { checkModelSource } from './llm.js';
 import { cacheCount, cacheClear, cacheDropDatabase } from './cache.js';
 import { initSpeaker, checkNativeTts, voiceFor, unlockAudio, speakNow, enqueue, stopAll, trackedSignal, isNativeBusy, queueLength } from './speaker.js';
 import { openPreview, fillPreview, escapeHtml } from './preview.js';
+import { openFeedback } from './feedback.js';
+import { openFeedback } from './feedback.js';
 import { settingsHtml } from './ui.js';
 import { saveFilterKey, clearFilterKey, filterKeyStatus, listModels } from './endpoint.js';
 
@@ -136,6 +138,7 @@ async function previewMessage(mesId) {
             return outputFromLabels(src.text, outcome.segments, labels);
         },
         addToScheme: (labels, outcome) => chooseSchemeAndAdd(src.text, outcome.segments, labels, src.message),
+        feedback: host => openFeedback({ ...host, text: src.text, message: src.message, unlock: unlockAudio }),
     });
 }
 

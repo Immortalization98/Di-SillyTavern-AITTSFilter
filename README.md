@@ -30,6 +30,7 @@ The user interface is in Simplified Chinese.
 - **Manual narration**: takes over the narrate button on each message (can be switched off to restore the built-in behaviour), plus a wand-menu item and slash commands `/aitts [n]`, `/aitts-preview [n]`, `/aitts-filter text`.
 - **Automatic narration** (off by default) with its own queue, so messages in a row don't cut each other off; reads only the new part after *Continue*.
 - **Preview** of what will be read: skipped parts are struck through and labelled (rule / model / manual). A **correction mode** lets you tap segments to switch read / not read, read the corrected result and remember it.
+- **Feedback correction** (**提意见** in the preview): say in a sentence what is wrong. The filtering model proposes changes for this message, plus rules and a note for the format scheme; every rule is checked against this message and the scheme's samples, and nothing is saved until you confirm. Rules learned this way decide later messages without asking the model. The opinion and the message are sent to the filtering model's provider. Or choose **补充样例** to keep only the corrected message as a sample (anchor), without new rules.
 - **Filter model**: a custom OpenAI-compatible endpoint (URL, key, model), a Connection Manager profile, or the current chat connection — or rules only, with no model at all.
 - **Cache** per device (IndexedDB) that stores only skipped segment numbers, never chat text.
 - **Format schemes**: teach the extension a card's or preset's format with a few samples (see below).

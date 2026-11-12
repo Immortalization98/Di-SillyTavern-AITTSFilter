@@ -310,3 +310,48 @@ body:not(.aitts-enabled) #aitts_wand_container {
 .aitts-diffs li {
     margin: 4px 0;
 }
+
+/* ---------------------------------------------------------------- feedback correction */
+
+.aitts-preview .aitts-seg-changed {
+    outline: 2px dashed #e0a030;
+    outline-offset: 1px;
+}
+
+.aitts-feedback textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.aitts-feedback .aitts-actions {
+    margin: 6px 0;
+}
+
+.aitts-fb-side {
+    margin-top: 8px;
+    padding: 6px 8px;
+    border-left: 3px solid #e0a030;
+    background: rgba(224, 160, 48, 0.08);
+}
+
+.aitts-fb-side h4 {
+    margin: 10px 0 4px;
+}
+
+.aitts-fb-rule {
+    align-items: flex-start;
+}
+
+.aitts-fb-rejected ul {
+    margin: 4px 0;
+    padding-left: 20px;
+}
+
+.aitts-fb-mode {
+    margin: 6px 0;
+}
+
+.aitts-fb-mode .checkbox_label {
+    align-items: flex-start;
+    margin: 4px 0;
+}

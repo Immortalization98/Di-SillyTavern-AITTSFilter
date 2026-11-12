@@ -182,7 +182,7 @@ export async function chooseSchemeAndAdd(text, segments, labels, message) {
 }
 
 /** @param {import('./scheme.js').Scheme} scheme @returns {Promise<string|undefined>} */
-async function pickAnchorToReplace(scheme) {
+export async function pickAnchorToReplace(scheme) {
     const c = ctx();
     const root = document.createElement('div');
     root.innerHTML = `
