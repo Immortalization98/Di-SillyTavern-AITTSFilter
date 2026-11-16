@@ -212,6 +212,31 @@ test('runFilter falls back on errors and on the all-skipped guard; abort rethrow
     const greedy = await runFilter(text, { mode: 'llm', rules: rulesCfg(), classify: async () => '{"skip":[1,2]}' });
     assert.equal(greedy.source, 'fallback');
 
+    // A message with no story (only variables and choices): skipping all of it with kinds named is trusted.
+    const lines = [...Array(12)].map((_, i) => `{"变量${i}": "值${i}", "时间": "${'第一天上午'.repeat(5)}"}`);
+    const noStory = lines.join('\n');
+    const named = await runFilter(noStory, {
+        mode: 'llm', rules: rulesCfg(),
+        classify: async (messages) => {
+            const n = (messages.at(-1).content.match(/\[\d+\]/g) ?? []).length;
+            assert.ok(n >= 2);
+            return JSON.stringify({ skip: { status: [1], code: `2-${n}` } });
+        },
+    });
+    assert.equal(named.source, 'llm');
+    assert.equal(composeOutput(noStory, named.segments, named.decisions), '');
+    const bare = await runFilter(noStory, {
+        mode: 'llm', rules: rulesCfg(),
+        classify: async (messages) => JSON.stringify({ skip: [`1-${(messages.at(-1).content.match(/\[\d+\]/g) ?? []).length}`] }),
+    });
+    assert.equal(bare.source, 'fallback');
+    assert.match(bare.error, /没有分出/);
+    const oneKind = await runFilter(noStory, {
+        mode: 'llm', rules: rulesCfg(),
+        classify: async (messages) => JSON.stringify({ skip: { think: `1-${(messages.at(-1).content.match(/\[\d+\]/g) ?? []).length}` } }),
+    });
+    assert.equal(oneKind.source, 'fallback');
+
     const small = await runFilter('【HP：5】', { mode: 'llm', rules: rulesCfg(), classify: async () => '{"skip":{"status":[1]}}' });
     assert.equal(small.source, 'llm');
     assert.equal(composeOutput('【HP：5】', small.segments, small.decisions), '');

@@ -15,8 +15,9 @@ import { skipRanges, applyRanges, isSubsequence } from './compose.js';
  * @property {number} [maxBatchChars]
  * @property {string} [formatNote]     format scheme note appended to the system prompt
  * @property {{ user: string, assistant: string }[]} [examples]  worked examples (few-shot)
- * @property {number} [guardMinChars]   if the model skips everything it was sent and that was at
- *                                      least this many characters, treat the answer as broken
+ * @property {number} [guardMinChars]   if the model skips everything it was sent, at least this
+ *                                      many characters, without naming at least two kinds of
+ *                                      content ("other" does not count), treat the answer as broken
  * @property {(messages: {role:string,content:string}[], signal?: AbortSignal) => Promise<unknown>} [classify]
  * @property {AbortSignal} [signal]
  */
@@ -59,8 +60,11 @@ export async function runFilter(text, opts) {
             const answer = await opts.classify(batch.messages, opts.signal);
             const picked = parseAnswer(answer, batch.ids.length);
             const guardMin = opts.guardMinChars ?? 300;
-            if (picked.size === batch.ids.length && batch.sourceChars >= guardMin) {
-                throw new GuardError('模型要跳过发给它的全部内容，视为异常');
+            // Skipping all of it is believable when the model tells the parts apart (a message
+            // that is only status, variables and choices); "skip everything" with one kind is not.
+            const kinds = new Set([...picked.values()].filter(cat => cat !== 'other'));
+            if (picked.size === batch.ids.length && batch.sourceChars >= guardMin && kinds.size < 2) {
+                throw new GuardError('模型要跳过发给它的全部内容，又没有分出两种以上的内容，视为异常');
             }
             for (const [n, cat] of picked) {
                 fromModel.set(batch.ids[n - 1], { skip: true, cat, src: 'llm' });

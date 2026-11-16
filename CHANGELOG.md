@@ -1,5 +1,14 @@
 # Changelog / 更新日志
 
+## 1.1.1 — 2026-11-16
+
+- Fixed: 1.1.0 did not load at all (a duplicate import in `src/index.js` stopped the whole extension with a syntax error). A new test now checks that every module parses and that every imported name exists.
+  修复：1.1.0 完全加载不起来（`src/index.js` 里有一行重复的导入，整个扩展因语法错误停止）。新加的测试会检查每个模块都能解析、导入的名字都存在。
+- Fixed: long text failed with a server error (500) when SillyTavern's TTS option "Narrate by paragraphs" was off, as the whole text went to the speech service in one request and was over its length limit. Text is now handed over in pieces of at most 1000 characters (cut between lines, else at sentence ends), each after the previous one has been played; with the option on, it is handed over at once as before, only over-long lines are broken. Stopping the playback or a new narration also stops the remaining pieces; automatic narration waits until a long manual one is done.
+  修复：酒馆 TTS 设置里没勾选“Narrate by paragraphs”时，长文字会报服务器错误（500）：整段文字一次发给语音服务，超过了它的长度上限。现在会分成每段最多 1000 字交出去（在换行处断开，不行就在句末断开），上一段播完再交下一段；勾选了这个选项时仍然一次交出，只把过长的行断开。停止播放或开始新的朗读时，剩下的段也不再朗读；自动朗读会等手动的长文读完再开始。
+- Fixed: a message without story text (only status, variables and choices) failed with "模型要跳过发给它的全部内容，视为异常" and was then read with the rules only, code and all. When the model tells at least two kinds of content apart (for example status and code), skipping all of it is now accepted and nothing is read; "skip everything" with a single kind or none is still treated as a broken answer.
+  修复：没有正文的消息（只有状态栏、变量和选项）会报“模型要跳过发给它的全部内容，视为异常”，然后只按规则朗读，连代码一起读出来。现在模型分出了至少两种内容（比如状态栏和代码）时，就接受全部跳过，什么都不读；只给一种内容或不说明内容就要求全部跳过的，仍然当作模型答错。
+
 ## 1.1.0 — 2026-11-12
 
 - **Feedback correction** in the preview ("提意见"), carried over from the successor extension AI Voice: say in a sentence or two what the filter got wrong, and tap parts if you like. One request to the filtering model answers which parts of this message change, rules of the scheme's fixed shapes that would decide such parts from now on, and a line for the format note. Every rule is checked first: it must hit this message and must not drop anything that is read, here or in the scheme's other samples. You see the changes, can adjust them, and choose what to keep; only then is the message read and remembered, added to (or updated in) a format scheme as a sample, and the chosen rules and note saved. Rules learned this way can be switched off one by one in the scheme. The opinion and the message are sent to the filtering model's provider. Two kinds: **solidify** (described above: rules and a note for the scheme) and **add as sample** (only this message is corrected, then kept as a sample — an anchor — of the scheme; no rules or note are added, and the scheme's "附带样例" can be switched on so new messages are filtered with the samples as examples). The kind chosen last is remembered on the device.

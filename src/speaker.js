@@ -1,6 +1,9 @@
 // Hands filtered text to SillyTavern's built-in TTS through the registered
 // /speak command, and queues automatic narration so messages don't cut each
 // other off (/speak resets native playback every time it is called).
+// Long text is handed over in pieces a speech service accepts.
+
+import { speechPieces } from './core/speech-pieces.js';
 
 const DEFAULT_VOICE = '[Default Voice]';
 const IDLE_HOLD_MS = 1500;      // longer than native's 1 s polling, so gaps between paragraphs don't count
@@ -13,6 +16,13 @@ let startedJobs = 0;
 let lastTtsEventAt = 0;
 let lastAudioActivityAt = 0;
 let generation = 0;
+/** Changes with every new narration, so a narration still speaking its pieces gives way. */
+let speakToken = 0;
+/** When playback was last stopped by hand (paused before its end). */
+let stoppedAt = 0;
+let piecesHintShown = false;
+/** The token of a manual narration still speaking its pieces, or 0. */
+let manualToken = 0;
 /**
  * @typedef {{ text: string, voice: string } | null} PreparedJob
  * @typedef {{ prepare: (signal: AbortSignal) => Promise<PreparedJob>, label?: string }} QueueItem
@@ -67,6 +77,9 @@ function audioElement() {
         for (const type of ['play', 'playing', 'pause', 'ended', 'emptied']) {
             audio.addEventListener(type, () => { lastAudioActivityAt = Date.now(); });
         }
+        audio.addEventListener('pause', () => {
+            if (!audio.ended) stoppedAt = Date.now();
+        });
     }
     return audio;
 }
@@ -110,8 +123,8 @@ async function waitIdle(gen) {
     }
 }
 
-/** Speaks right away (native playback is reset by /speak). */
-export async function speakNow(text, voice) {
+/** Hands one text to native TTS (its playback is reset by /speak). */
+async function callSpeak(text, voice) {
     const check = checkNativeTts();
     if (!check.ok) {
         toastr.warning(check.reason, 'AI 朗读过滤');
@@ -123,20 +136,81 @@ export async function speakNow(text, voice) {
     return true;
 }
 
-/** Speaks and waits until native TTS has finished with it. */
-async function speakAndWait(text, voice, gen) {
-    const before = startedJobs;
-    if (!(await speakNow(text, voice))) {
-        return;
-    }
+/** @param {string} text */
+function piecesOf(text) {
+    const nativeSplitsLines = SillyTavern.getContext().extensionSettings.tts?.narrate_by_paragraphs === true;
+    return speechPieces(text, { nativeSplitsLines });
+}
+
+function hintPieces() {
+    if (piecesHintShown) return;
+    piecesHintShown = true;
+    toastr.info('这段文字较长，会分几次交给语音服务，中间可能有短暂停顿。在 TTS 设置里勾选“Narrate by paragraphs”可以更连贯。', 'AI 朗读过滤', { timeOut: 10000 });
+}
+
+/**
+ * Waits until native TTS has started and then finished the text just handed over.
+ * @returns {Promise<boolean>} whether the next piece may follow: not skipped by native,
+ *   no stopAll() or newer narration, and playback not stopped by hand while it played
+ */
+async function waitPiece(before, gen, token) {
     const startDeadline = Date.now() + START_TIMEOUT_MS;
     while (gen === generation && startedJobs === before && Date.now() < startDeadline) {
         await sleep(200);
     }
-    if (startedJobs === before) {
-        return;
-    }
+    if (startedJobs === before) return false; // native skipped it
+    // Counted from the start only: handing the text over resets playback, which pauses audio still playing.
+    const since = Date.now();
     await waitIdle(gen);
+    return gen === generation && token === speakToken && stoppedAt < since;
+}
+
+/**
+ * Speaks the pieces one after another, each after the previous one has finished.
+ * @returns {Promise<boolean>} false when native TTS cannot be used
+ */
+async function speakPieces(pieces, voice, gen, token) {
+    for (const piece of pieces) {
+        if (gen !== generation || token !== speakToken) return true;
+        const before = startedJobs;
+        if (!(await callSpeak(piece, voice))) return false;
+        if (!(await waitPiece(before, gen, token))) return true;
+    }
+    return true;
+}
+
+/**
+ * Speaks right away. A long text is spoken piece by piece: this resolves once the
+ * first piece is handed over (errors of that call reach the caller), the rest
+ * follows in the background, and the automatic queue waits for it.
+ * @returns {Promise<boolean>} false when native TTS cannot be used
+ */
+export async function speakNow(text, voice) {
+    const token = ++speakToken;
+    const pieces = piecesOf(text);
+    if (pieces.length <= 1) return callSpeak(pieces[0] ?? text, voice);
+    const gen = generation;
+    const before = startedJobs;
+    // Marked before handing over, so the queue cannot slip in while the first piece is on its way.
+    manualToken = token;
+    let handed = false;
+    try {
+        handed = await callSpeak(pieces[0], voice);
+    } finally {
+        if (!handed && manualToken === token) manualToken = 0;
+    }
+    if (!handed) return false;
+    hintPieces();
+    (async () => {
+        try {
+            if (await waitPiece(before, gen, token)) await speakPieces(pieces.slice(1), voice, gen, token);
+        } catch (error) {
+            console.error('[AI TTS Filter] narration failed', error);
+        } finally {
+            if (manualToken === token) manualToken = 0;
+        }
+    })();
+    return true;
 }
 
 /**
@@ -167,11 +241,17 @@ async function pump() {
                 if (gen !== generation || !job?.text) {
                     continue;
                 }
+                // A long manual narration keeps the stage until its last piece is done.
+                while (manualToken && manualToken === speakToken && gen === generation) {
+                    await sleep(200);
+                }
                 await waitIdle(gen);
                 if (gen !== generation) {
                     continue;
                 }
-                await speakAndWait(job.text, job.voice, gen);
+                const pieces = piecesOf(job.text);
+                if (pieces.length > 1) hintPieces();
+                await speakPieces(pieces, job.voice, gen, ++speakToken);
             } catch (error) {
                 if (!controller.signal.aborted) {
                     console.error('[AI TTS Filter] narration failed', error);
