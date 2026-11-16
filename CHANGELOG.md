@@ -1,5 +1,10 @@
 # Changelog / 更新日志
 
+## 1.1.3 — 2026-11-16
+
+- Fixed: with a slow speech service, the pieces of a long text could be read out of order. A piece whose speech had not come back after 20 s counted as done, so the next one was handed over; SillyTavern's TTS resets playback for it but does not cancel the request in flight, whose audio then arrived later. Now the next piece follows only once the previous one's speech has come back (waiting up to 100 s); if it never does, the rest is not read and a notice says so. The automatic narration waits the same way before the next message.
+  修复：语音服务较慢时，长文字分成的几段可能乱序朗读。以前一段的语音 20 秒没回来就当作读完了，于是交出下一段；酒馆的朗读会为它重置播放，却不会取消还在请求中的上一段，那段的音频晚些回来照样会播。现在要等上一段的语音回来才交下一段（最多等 100 秒）；一直没回来时，后面的段不再朗读，并会提示。自动朗读在读下一条消息前也一样等待。
+
 ## 1.1.2 — 2026-11-16
 
 - The **trial run** (试运行) in the panel gets **纠错** and **提意见** under its result. They open the preview's correction and feedback for the pasted text, so a message the filter got wrong can be corrected there and kept as a sample (anchor) of a format scheme, or turned into rules ("固化"). The format scheme is the one a message of the open chat would use; another one can be chosen when saving.

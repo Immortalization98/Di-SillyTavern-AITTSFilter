@@ -8,11 +8,16 @@ import { speechPieces } from './core/speech-pieces.js';
 const DEFAULT_VOICE = '[Default Voice]';
 const IDLE_HOLD_MS = 1500;      // longer than native's 1 s polling, so gaps between paragraphs don't count
 const START_TIMEOUT_MS = 10_000; // nothing started -> native skipped the text
-const STALE_EVENT_MS = 20_000;   // a TTS job that never reported completion
+// A TTS job that never reported completion (native reports no failed job) counts as done after
+// this long. It must outlast a slow speech service: /speak resets native playback but does not
+// cancel a request in flight, whose audio still arrives later, so speaking on early mixes up the
+// order. Services behind Cloudflare give up after 100 s at most.
+const STALE_EVENT_MS = 100_000;
 const MAX_WAIT_MS = 10 * 60_000;
 
 let inflightJobs = 0;
 let startedJobs = 0;
+let completedJobs = 0;
 let lastTtsEventAt = 0;
 let lastAudioActivityAt = 0;
 let generation = 0;
@@ -37,12 +42,16 @@ export function initSpeaker() {
     audioElement();
     const { eventSource, eventTypes } = SillyTavern.getContext();
     eventSource.on(eventTypes.TTS_JOB_STARTED, () => {
+        // Jobs can overlap (a reset leaves the request in flight running). A count left by a
+        // job that failed silently is dropped once nothing has happened for the stale time.
+        if (Date.now() - lastTtsEventAt > STALE_EVENT_MS) inflightJobs = 0;
         inflightJobs++;
         startedJobs++;
         lastTtsEventAt = Date.now();
     });
     eventSource.on(eventTypes.TTS_JOB_COMPLETE, () => {
         inflightJobs = Math.max(0, inflightJobs - 1);
+        completedJobs++;
         lastTtsEventAt = Date.now();
     });
 }
@@ -150,20 +159,30 @@ function hintPieces() {
 
 /**
  * Waits until native TTS has started and then finished the text just handed over.
- * @returns {Promise<boolean>} whether the next piece may follow: not skipped by native,
- *   no stopAll() or newer narration, and playback not stopped by hand while it played
+ * @param {{ started: number, completed: number }} before  job counts taken before handing it over
+ * @returns {Promise<boolean>} whether the next piece may follow: not skipped by native, its
+ *   speech reported done (else a request may still be in flight, and the next /speak would
+ *   play out of order), no stopAll() or newer narration, and playback not stopped by hand
  */
 async function waitPiece(before, gen, token) {
     const startDeadline = Date.now() + START_TIMEOUT_MS;
-    while (gen === generation && startedJobs === before && Date.now() < startDeadline) {
+    while (gen === generation && startedJobs === before.started && Date.now() < startDeadline) {
         await sleep(200);
     }
-    if (startedJobs === before) return false; // native skipped it
+    if (startedJobs === before.started) return false; // native skipped it
     // Counted from the start only: handing the text over resets playback, which pauses audio still playing.
     const since = Date.now();
     await waitIdle(gen);
-    return gen === generation && token === speakToken && stoppedAt < since;
+    if (gen !== generation || token !== speakToken || stoppedAt >= since) return false;
+    if (completedJobs === before.completed) {
+        console.warn('[AI TTS Filter] the speech service did not finish a piece; the rest is not read');
+        toastr.warning('语音服务没有返回这一段，后面的段不再朗读（以免顺序错乱）。可以稍后重新朗读。', 'AI 朗读过滤');
+        return false;
+    }
+    return true;
 }
+
+const jobCounts = () => ({ started: startedJobs, completed: completedJobs });
 
 /**
  * Speaks the pieces one after another, each after the previous one has finished.
@@ -172,7 +191,7 @@ async function waitPiece(before, gen, token) {
 async function speakPieces(pieces, voice, gen, token) {
     for (const piece of pieces) {
         if (gen !== generation || token !== speakToken) return true;
-        const before = startedJobs;
+        const before = jobCounts();
         if (!(await callSpeak(piece, voice))) return false;
         if (!(await waitPiece(before, gen, token))) return true;
     }
@@ -190,7 +209,7 @@ export async function speakNow(text, voice) {
     const pieces = piecesOf(text);
     if (pieces.length <= 1) return callSpeak(pieces[0] ?? text, voice);
     const gen = generation;
-    const before = startedJobs;
+    const before = jobCounts();
     // Marked before handing over, so the queue cannot slip in while the first piece is on its way.
     manualToken = token;
     let handed = false;
