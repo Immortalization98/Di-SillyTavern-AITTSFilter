@@ -117,9 +117,22 @@ async function previewMessage(mesId) {
         toastr.warning('找不到这条消息', TITLE);
         return;
     }
+    await openTextPreview(`朗读预览 · #${mesId}${src.message.name ? ` · ${src.message.name}` : ''}`, src.text, src.message);
+}
+
+/**
+ * The preview with correction and feedback, for a chat message or for text pasted
+ * into the trial run (no message: the open chat's card decides the format scheme).
+ * @param {string} title
+ * @param {string} text
+ * @param {any} [message]
+ * @param {'edit'|'feedback'} [start]
+ */
+async function openTextPreview(title, text, message, start) {
     await openPreview({
-        title: `朗读预览 · #${mesId}${src.message.name ? ` · ${src.message.name}` : ''}`,
-        load: (force) => filterText(src.text, { force, message: src.message }),
+        title,
+        start,
+        load: (force) => filterText(text, { force, message }),
         unlock: unlockAudio,
         speak: (output) => {
             unlockAudio();
@@ -128,16 +141,16 @@ async function previewMessage(mesId) {
                 return;
             }
             stopAll();
-            speakNow(output, voiceFor(src.message)).catch((error) => {
+            speakNow(output, voiceFor(message)).catch((error) => {
                 toastr.error(`朗读失败：${error instanceof Error ? error.message : error}`, TITLE);
             });
         },
         saveCorrection: async (labels, outcome) => {
-            await saveManualResult(src.text, { message: src.message }, labels);
-            return outputFromLabels(src.text, outcome.segments, labels);
+            await saveManualResult(text, { message }, labels);
+            return outputFromLabels(text, outcome.segments, labels);
         },
-        addToScheme: (labels, outcome) => chooseSchemeAndAdd(src.text, outcome.segments, labels, src.message),
-        feedback: host => openFeedback({ ...host, text: src.text, message: src.message, unlock: unlockAudio }),
+        addToScheme: (labels, outcome) => chooseSchemeAndAdd(text, outcome.segments, labels, message),
+        feedback: host => openFeedback({ ...host, text, message, unlock: unlockAudio }),
     });
 }
 
@@ -665,9 +678,28 @@ async function buildSettingsPanel() {
             out.textContent = '先粘贴一段消息原文。';
             return;
         }
+        // The text as it was run: later edits of the box do not change what is corrected.
+        const text = input.value;
         out.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 正在过滤…';
+        /** @param {boolean} force */
+        const show = async (force) => {
+            fillPreview(out, await filterText(text, { force }));
+            const actions = document.createElement('div');
+            actions.className = 'aitts-actions';
+            actions.innerHTML = `
+                <div class="menu_button" data-try="edit" title="自己点选哪些片段不读，可以加入格式方案的样例"><i class="fa-solid fa-pen"></i> 纠错</div>
+                <div class="menu_button" data-try="feedback" title="用一句话说哪里不对，让 AI 修正，并存成格式方案的样例或规则"><i class="fa-solid fa-comment-dots"></i> 提意见</div>`;
+            out.prepend(actions);
+            actions.addEventListener('click', async (event) => {
+                const mode = event.target instanceof Element ? event.target.closest('[data-try]')?.getAttribute('data-try') : null;
+                if (mode !== 'edit' && mode !== 'feedback') return;
+                await openTextPreview('试运行', text, undefined, mode);
+                // Corrections are remembered for this text: show the result as it is now.
+                show(false).catch(() => { });
+            });
+        };
         try {
-            fillPreview(out, await filterText(input.value, { force: true }));
+            await show(true);
             refreshStatus();
         } catch (error) {
             out.textContent = `过滤失败：${error instanceof Error ? error.message : error}`;

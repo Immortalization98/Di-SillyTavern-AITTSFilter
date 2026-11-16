@@ -72,7 +72,7 @@ Open the **AI 朗读过滤** panel in the extensions settings.
 
 - Tap the narrate button on a message, or use the wand menu **AI 朗读最新消息**.
 - Open **朗读预览** (filter icon in the message menu) to see what is skipped. Tap **纠错** to correct it, then **按此朗读并记住** or **加入样例**.
-- The **试运行** box in the panel filters any pasted text, handy for tuning the prompt.
+- The **试运行** box in the panel filters any pasted text, handy for tuning the prompt. Under its result, **纠错** and **提意见** open the same correction and feedback as the preview, so a pasted message can become a sample (anchor) or rules of a format scheme; the scheme is chosen as for a message of the open chat.
 
 ## Format schemes (anchoring)
 

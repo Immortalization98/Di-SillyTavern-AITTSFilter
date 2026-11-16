@@ -1,5 +1,12 @@
 # Changelog / 更新日志
 
+## 1.1.2 — 2026-11-16
+
+- The **trial run** (试运行) in the panel gets **纠错** and **提意见** under its result. They open the preview's correction and feedback for the pasted text, so a message the filter got wrong can be corrected there and kept as a sample (anchor) of a format scheme, or turned into rules ("固化"). The format scheme is the one a message of the open chat would use; another one can be chosen when saving.
+  面板里的 **试运行** 结果下面新增 **纠错** 和 **提意见**，打开和预览里一样的纠错和意见修正。过滤有疏漏的消息可以贴到这里改正，存成格式方案的样例（锚点），或者总结成规则（“固化”）。格式方案用当前打开的聊天里的消息会用的那个，保存时也可以改选。
+- Fixed: the preview showed "提意见" twice, and one tap opened the feedback twice.
+  修复：预览里的“提意见”按钮显示了两个，点一次会打开两遍意见修正。
+
 ## 1.1.1 — 2026-11-16
 
 - Fixed: 1.1.0 did not load at all (a duplicate import in `src/index.js` stopped the whole extension with a syntax error). A new test now checks that every module parses and that every imported name exists.

@@ -157,7 +157,7 @@ export function mountLabelEditor(el, text, segments, labels, onChange, changed) 
  *   saveCorrection?: (labels: Map<number, { skip: boolean, cat: string }>, outcome: import('./filter.js').FilterOutcome) => Promise<string>,
  *   addToScheme?: (labels: Map<number, { skip: boolean, cat: string }>, outcome: import('./filter.js').FilterOutcome) => Promise<void>,
  *   feedback?: (host: { body: HTMLElement, outcome: import('./filter.js').FilterOutcome, done: (output: string) => void, cancel: () => void }) => void,
- *   feedback?: (host: { body: HTMLElement, outcome: import('./filter.js').FilterOutcome, done: (output: string) => void, cancel: () => void }) => void,
+ *   start?: 'edit'|'feedback',  opens straight in that mode once the text is filtered
  * }} opts
  */
 export async function openPreview(opts) {
@@ -171,7 +171,6 @@ export async function openPreview(opts) {
             <div class="menu_button aitts-act-refilter"><i class="fa-solid fa-rotate"></i> 重新过滤</div>
             <div class="menu_button aitts-act-copy"><i class="fa-solid fa-copy"></i> 复制</div>
             ${opts.saveCorrection ? '<div class="menu_button aitts-act-edit"><i class="fa-solid fa-pen"></i> 纠错</div>' : ''}
-            ${opts.feedback ? '<div class="menu_button aitts-act-feedback" title="用一句话说哪里不对，让 AI 修正这条消息，并把规律记进格式方案"><i class="fa-solid fa-comment-dots"></i> 提意见</div>' : ''}
             ${opts.feedback ? '<div class="menu_button aitts-act-feedback" title="用一句话说哪里不对，让 AI 修正这条消息，并把规律记进格式方案"><i class="fa-solid fa-comment-dots"></i> 提意见</div>' : ''}
         </div>
         <div class="aitts-actions aitts-edit-actions" style="display:none">
@@ -224,8 +223,8 @@ export async function openPreview(opts) {
             toastr.error('复制失败（浏览器不允许访问剪贴板）');
         }
     });
-    root.querySelector('.aitts-act-edit')?.addEventListener('click', () => {
-        if (!current || busy) return;
+    const startEdit = () => {
+        if (!current || busy || !opts.saveCorrection) return;
         editing = labelsFromOutcome(current);
         viewActions.style.display = 'none';
         editActions.style.display = '';
@@ -233,8 +232,9 @@ export async function openPreview(opts) {
         const holder = document.createElement('div');
         body.append(holder);
         mountLabelEditor(holder, current.text, current.segments, editing);
-    });
-    root.querySelector('.aitts-act-feedback')?.addEventListener('click', () => {
+    };
+    root.querySelector('.aitts-act-edit')?.addEventListener('click', startEdit);
+    const startFeedback = () => {
         if (!current || busy || !opts.feedback) return;
         viewActions.style.display = 'none';
         editActions.style.display = 'none';
@@ -250,24 +250,8 @@ export async function openPreview(opts) {
             },
             cancel: showView,
         });
-    });
-    root.querySelector('.aitts-act-feedback')?.addEventListener('click', () => {
-        if (!current || busy || !opts.feedback) return;
-        viewActions.style.display = 'none';
-        editActions.style.display = 'none';
-        body.innerHTML = '';
-        const holder = document.createElement('div');
-        body.append(holder);
-        opts.feedback({
-            body: holder,
-            outcome: current,
-            done: (output) => {
-                opts.speak(output);
-                load(false);
-            },
-            cancel: showView,
-        });
-    });
+    };
+    root.querySelector('.aitts-act-feedback')?.addEventListener('click', startFeedback);
     root.querySelector('.aitts-act-cancel')?.addEventListener('click', showView);
     root.querySelector('.aitts-act-save')?.addEventListener('click', async () => {
         if (!current || !editing || !opts.saveCorrection) return;
@@ -290,6 +274,9 @@ export async function openPreview(opts) {
     });
 
     const shown = ctx.callGenericPopup(root, ctx.POPUP_TYPE.TEXT, '', { wide: true, large: true, allowVerticalScrolling: true, leftAlign: true, okButton: '关闭' });
-    load(false);
+    load(false).then(() => {
+        if (opts.start === 'edit') startEdit();
+        else if (opts.start === 'feedback') startFeedback();
+    });
     await shown;
 }
